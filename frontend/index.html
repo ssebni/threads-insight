@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Threads Insight · 나의 콘텐츠 작업실</title><link rel="stylesheet" href="styles.css?v=20261026-collaborations"><script src="config.js"></script><script defer src="app.js?v=20261026-collaboration-title"></script><script defer src="collaborations.js?v=20261026-collaboration-title"></script></head>
+<body data-view="overview">
+<aside class="sidebar"><a class="brand" href="#"><img class="brand-icon" src="threads-logo.png" alt="Threads 로고" width="32" height="32"> Threads<br><span class="brand-sub">INSIGHT STUDIO</span></a><div class="workspace">MY WORKSPACE <span>개인</span></div><nav aria-label="주 메뉴"><button class="nav active" data-view="overview">◈ &nbsp; 대시보드</button><button class="nav" data-view="chat">✳ &nbsp; AI 비서</button><button class="nav" data-view="data">▤ &nbsp; 협업 관리</button></nav><div class="side-bottom"><span class="live-dot"></span> 데이터와 함께 성장하는 공간<p>내 기록을 이해하는 AI 비서</p></div></aside>
+<main><header><div class="breadcrumb">내 작업실 <span>/</span> <b id="page-label">대시보드</b></div><div class="header-tools"><span id="updated">연결 확인 중</span><button id="refresh" class="button subtle">↻ 새로고침</button></div></header>
+<div class="page"><div class="page-title"><div class="eyebrow">YOUR WORDS, WITH PERSPECTIVE</div><h1>기록에서, 다음 아이디어로<span>.</span></h1><p>내 콘텐츠의 흐름을 살펴보고, 데이터에 근거한 이야기를 나눠보세요.</p></div>
+<div id="notice" role="status" aria-live="polite" hidden></div>
+<div class="content-grid"><div class="left-column">
+<section id="overview-view" class="view">
+<section class="stats main-stats" aria-label="누적 성과"><article><span>계정 조회수 · 최근 30일</span><strong id="total-views">—</strong><small>VIEWS</small></article><article><span>누적 좋아요</span><strong id="total-likes">—</strong><small>LIKES</small></article><article><span>누적 댓글</span><strong id="total-replies">—</strong><small>REPLIES</small></article><article><span>누적 리포스트</span><strong id="total-reposts">—</strong><small>REPOSTS</small></article></section><p id="totals-note" class="caption"></p>
+<section class="panel follower-panel"><div class="panel-heading"><div><div class="eyebrow">AUDIENCE GROWTH</div><h2 id="follower-title">최근 일주일 팔로워 증가수</h2></div><div class="follower-summary"><div class="follower-tabs" role="tablist" aria-label="팔로워 그래프 기간"><button type="button" id="follower-tab-week" role="tab" aria-selected="true" aria-controls="follower-chart" data-follower-range="week">일주일</button><button type="button" id="follower-tab-month" role="tab" aria-selected="false" aria-controls="follower-chart" tabindex="-1" data-follower-range="month">한달</button><button type="button" id="follower-tab-all" role="tab" aria-selected="false" aria-controls="follower-chart" tabindex="-1" data-follower-range="all">전체</button></div><div class="follower-total"><strong id="follower-count">—</strong><span>현재 팔로워 · 메타 프로필</span><small id="follower-observed" class="follower-observed">화면 수집 대기 중</small></div></div></div><div class="chart-legend"><span class="live-dot"></span> 전일 대비 순증 (명) <span id="follower-period">2026.10.03부터</span></div><div id="follower-chart" role="tabpanel" aria-labelledby="follower-tab-week"></div><p id="follower-note" class="caption"></p></section>
+<div class="section-title"><div class="eyebrow">THE POSTS THAT CONNECTED</div><h2>Best Threads <span>나의 콘텐츠 하이라이트</span></h2></div><section id="best-threads" class="best-grid" aria-label="Best Threads"></section>
+<section class="panel library-panel"><div class="panel-heading"><div><div class="eyebrow">CONTENT LIBRARY</div><h2>나의 게시물</h2></div></div><div id="posts" class="posts"><p class="empty">게시물을 불러오고 있습니다.</p></div><button id="more-posts" class="button wide" hidden>게시물 더 보기 ↓</button></section>
+</section><section id="data-view" class="panel view" hidden>
+<div class="panel-heading"><div><div class="eyebrow">COLLABORATIONS</div><h2>협업 관리</h2></div><button id="new-collaboration" class="button primary">＋ 협업 만들기</button></div>
+<p class="caption">해시태그별 게시물 성과와 원고료를 함께 관리합니다. 여기서 붙인 해시태그는 이 사이트의 분류용이며 Threads 원문을 수정하지 않습니다.</p>
+<div id="collaboration-finance" class="stats collaboration-finance"></div><p id="collaboration-finance-note" class="caption"></p>
+<form id="collaboration-form" class="contract-form" hidden>
+<h3 id="collaboration-form-title" class="full">새 협업 해시태그</h3>
+<label>해시태그 (10자 이내)<input name="tag" maxlength="11" placeholder="예: 롯데마트" required></label>
+<label>협업 기준일<input name="date" type="date" required></label>
+<label>원고료 방식<select name="fee_mode"><option value="bundle">협업 전체 일괄</option><option value="per_post">게시물별 원고료</option></select></label>
+<label><span id="contract-fee-label">협업 전체 원고료 (원)</span><input name="fee" type="number" min="0" max="1000000000000" step="1" required></label>
+<p id="contract-fee-help" class="caption full"></p>
+<label>지금까지 입금받은 총액 (원)<input name="paid_amount" type="number" min="0" max="1000000000000" step="1" required></label>
+<label class="full">협업 메모<textarea name="memo" rows="3" maxlength="2000" placeholder="담당자, 정산 예정일, 진행 사항 등을 자유롭게 적어주세요."></textarea></label>
+<div class="form-actions full"><button type="submit" class="button primary">협업 저장</button><button type="button" id="cancel-collaboration" class="button">취소</button></div>
+<p class="caption full" id="collaboration-save-status" role="status"></p>
+</form>
+<div id="collaboration-list" class="collaboration-grid"></div>
+<details class="collaboration-analysis"><summary>협업 분석 기록 · 기준일 / 원고료 / 메모</summary><p class="caption">협업별 총 약정 원고료를 원 단위로 기록합니다. 조회수 합계에는 포함하지 않습니다.</p><div id="collaboration-analysis"></div></details>
+<p class="caption">각 협업 안에서는 게시물을 한 번만 합산합니다. 같은 게시물에 여러 해시태그를 연결하면 협업별 성과에는 각각 포함됩니다. 팔로워 유입 미확인 값은 0으로 처리하지 않습니다.</p>
+<div class="panel-heading memo-library-heading"><h2>게시물 메모</h2></div><div id="data-list"></div><button id="more-data" class="button wide" hidden>메모 더 보기 ↓</button>
+</section>
+<section id="history-view" class="panel view" hidden><div class="panel-heading"><div><div class="eyebrow">CONVERSATION ARCHIVE</div><h2>대화 기록</h2></div></div><p class="caption">이전 대화를 선택해 이어서 질문하세요.</p><div id="conversation-list"></div><button id="more-history" class="button wide" hidden>기록 더 보기 ↓</button></section>
+</div><section id="chat-view" class="panel chat-panel view" hidden aria-label="데이터 기반 AI 채팅"><div class="panel-heading"><div><div class="eyebrow">YOUR CREATIVE PARTNER</div><h2>인사이트 비서 <span class="sparkle">✳</span></h2></div><button id="new-chat" class="button subtle">＋ 새 대화</button></div><p class="chat-context" id="chat-context">현재 데이터 요약을 바탕으로 답변합니다.</p><p id="chat-summary" class="caption"></p><div id="messages" class="messages" role="log" aria-live="polite"><div class="welcome"><span class="welcome-icon">✳</span><h3>어떤 이야기가 궁금하세요?</h3><p>숫자에 담긴 흐름을 함께 읽어볼게요.</p><button class="suggestion" data-question="내 데이터의 현재 성과를 요약해 줘">현재 성과를 요약해 줘 ↗</button><button class="suggestion" data-question="최근 게시물 성과는 어떤 흐름이야? 해석할 때 주의할 점도 알려줘">최근 성과 흐름은 어때? ↗</button></div></div><form id="chat-form"><label class="sr-only" for="chat-input">AI에게 질문하기</label><div class="composer"><textarea id="chat-input" maxlength="2000" rows="2" placeholder="내 데이터에 대해 물어보세요…" required></textarea><button id="send-chat" type="submit" aria-label="질문 보내기">↑</button></div><p class="caption">답변은 자동 저장됩니다. AI 분석은 실제 데이터와 함께 확인하세요.</p></form></section></div>
+<footer>THREADS INSIGHT <span>생각은 자유롭게. 판단은 데이터와 함께.</span></footer></div></main>
+<dialog id="post-dialog"><div class="panel-heading"><h2>스레드 상세</h2><button id="close-dialog" class="button">닫기 ×</button></div><div id="post-detail"></div></dialog>
+<dialog id="collaboration-dialog"><div class="panel-heading"><h2 id="collaboration-dialog-title">협업 상세</h2><button id="close-collaboration" class="button">닫기 ×</button></div><p id="collaboration-dialog-status" class="caption" role="status"></p><div id="collaboration-detail"></div></dialog>
+<dialog id="access-dialog"><h2>내 작업실 연결</h2><p>공개 주소에서도 내 데이터와 AI 호출을 보호합니다. 사이트 접근키를 입력해 주세요.</p><form id="access-form"><label for="access-token">사이트 접근키</label><input id="access-token" type="password" autocomplete="off" required><button class="button primary" type="submit">연결</button></form></dialog>
+</body></html>
+
+
+
+
+
+

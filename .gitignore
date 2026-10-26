@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+secrets/
+*service-account*.json
+*-firebase-adminsdk-*.json
+frontend/dist/
+backend/work/read-cache.json
+backend/work/read-cache.tmp
+backend/work/
+work/
+browser-extension/
+*-investigation.md
+*.log

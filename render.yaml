@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: threads-insight-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    envVars:
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: /etc/secrets/firebase-service-account.json
+      - key: FIRESTORE_DATABASE_ID
+        value: (default)
+      - key: AI_PROVIDER
+        value: codyssey_anthropic
+      - key: CODESEI_API_KEY
+        sync: false
+      - key: CODESEI_MODEL
+        value: claude-sonnet-4
+      - key: CODESEI_BASE_URL
+        value: https://copa.codyssey.kr
+      - key: ALLOWED_ORIGINS
+        sync: false
+      - key: APP_ACCESS_TOKEN
+        sync: false
+      - key: THREADS_ACCESS_TOKEN
+        sync: false
+      - key: THREADS_AUTO_SYNC
+        value: "false"

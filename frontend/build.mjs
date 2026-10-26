@@ -1,0 +1,10 @@
+import { cpSync, mkdirSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+const root = dirname(fileURLToPath(import.meta.url));
+const api = process.env.API_BASE_URL;
+if (!api || !/^https:\/\//.test(api)) throw new Error('Set API_BASE_URL to the HTTPS Render backend URL.');
+mkdirSync(join(root, 'dist'), { recursive: true });
+for (const name of ['index.html', 'styles.css', 'app.js', 'collaborations.js', 'threads-logo.png']) cpSync(join(root, name), join(root, 'dist', name));
+writeFileSync(join(root, 'dist', 'config.js'), 'window.APP_CONFIG = ' + JSON.stringify({ API_BASE_URL: api.replace(/\/$/, '') }) + ';\n');
+console.log('Static frontend built; API_BASE_URL configured.');
