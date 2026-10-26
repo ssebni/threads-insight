@@ -28,4 +28,6 @@
 
 ## 배포 결과
 
-실제 서비스 URL과 검증 결과는 배포 완료 후 README에 기록합니다. 설정 파일 생성이나 GitHub 업로드만으로 배포 완료라고 표시하지 않습니다.
+2026-10-26 Render Free 및 Vercel Hobby 배포 성공. 프런트 `https://threads-insight-frontend.vercel.app/`, API `https://threads-insight.onrender.com`, Swagger `/docs`.
+
+health·Swagger·정적 페이지·접근키 인증·CORS 확인 완료. Firestore 할당량 초과로 데이터와 AI/CRUD 최종 검증은 보류합니다. 승인받은 키와 서비스 계정은 Render 비밀 환경 변수/Secret File에만 등록했습니다. 접근키 파일은 로컬 backend/work/deploy-access.env에 있으며 Git에서 제외됩니다.

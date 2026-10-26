@@ -68,7 +68,14 @@ python -m venv .venv
 
 절차와 환경 변수 등록은 [DEPLOYMENT.md](DEPLOYMENT.md)를 참고합니다. 백엔드 root `backend`, 프런트 root `frontend`, Vercel build `node build.mjs`, output `dist`입니다. Render는 단일 worker로 실행합니다.
 
-실제 Render·Vercel·Swagger URL은 배포 완료 후 기록합니다. 현재는 배포 진행 중입니다. 브라우저 프로필 수집 확장은 로컬 전용이므로 배포 사이트에서 자동 작동하지 않습니다. 저장된 프로필 마지막 값과 공식 API 수집값은 구분합니다.
+- 프런트: https://threads-insight-frontend.vercel.app/
+- 백엔드: https://threads-insight.onrender.com
+- Swagger: https://threads-insight.onrender.com/docs
+- GitHub: https://github.com/ssebni/threads-insight (비공개, 평가자 접근 권한은 별도 제공)
+
+2026-10-26 Render Free / Vercel Hobby 배포 성공을 확인했습니다. health·Swagger·정적 프런트 200, 접근키 없는 API 401, 키 있는 AI 상태 조회 200, Vercel 출처의 CORS 사전 요청 200을 검증했습니다. Firestore 읽기 할당량 초과로 실제 데이터 조회와 AI·CRUD 최종 재검증은 미완료입니다. 배포 성공과 기능 최종 검증 완료는 구분합니다.
+
+사이트 접근키는 로컬 `backend/work/deploy-access.env`에 비공개 보관하며 GitHub에 올리지 않습니다. 평가자에게는 별도로 전달합니다. 브라우저 프로필 수집 확장은 로컬 전용이므로 배포 사이트에서 자동 작동하지 않습니다. 저장된 프로필 마지막 값과 공식 API 수집값은 구분합니다.
 
 ## 검증과 제출 자료
 
