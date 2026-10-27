@@ -19,6 +19,7 @@ from app.followers import collect_followers
 from app.reply_views import sync_reply_views
 from app.account_views import collect_account_views
 from app.profile_snapshot import ProfileSnapshot, save_snapshot
+from app.sync_workers import SYNC_WORKERS, collect_parallel
 
 BASE_URL = 'https://graph.threads.net/v1.0'
 METRICS = ('views', 'likes', 'replies', 'reposts', 'quotes')
@@ -73,6 +74,64 @@ def fetch_posts(session):
     raise SyncError('threads_page_limit_exceeded')
 
 
+def sync_post(session, db, ref, data, snapshot, force):
+    check_insight = force or time.monotonic() >= next_insight_check.get(ref.id, 0)
+    latest = []
+    latest_loaded = False
+
+    def load_latest():
+        return list(ref.collection('insights').order_by(
+            'collected_at', direction='DESCENDING').limit(1).stream(timeout=10))
+
+    # A forced refresh needs the API's new metrics, not the old history first.
+    if check_insight and snapshot.exists and not force:
+        latest = load_latest()
+        latest_loaded = True
+        if latest and latest[0].to_dict().get('status') == 'success':
+            age = (datetime.now(timezone.utc) - latest[0].to_dict()['collected_at']).total_seconds()
+            remaining = insight_interval_seconds() - age
+            if remaining > 0:
+                next_insight_check[ref.id] = time.monotonic() + remaining
+                check_insight = False
+    batch = db.batch()
+    created = updated = saved = 0
+    if not snapshot.exists:
+        batch.create(ref, data)
+        created = 1
+    elif any(snapshot.to_dict().get(k) != v for k, v in data.items()):
+        batch.update(ref, data)
+        updated = 1
+    if check_insight:
+        payload = api_get(session, f'{ref.id}/insights', {'metric': ','.join(METRICS)})
+        metrics = {name: None for name in METRICS}
+        for metric in payload['data']:
+            values = metric.get('values', [])
+            if metric.get('name') in metrics and values:
+                value = values[0].get('value')
+                if type(value) is int and value >= 0:
+                    metrics[metric['name']] = value
+        complete = all(value is not None for value in metrics.values())
+        if not complete and snapshot.exists and not latest_loaded:
+            latest = load_latest()
+        # Preserve successful history when the API temporarily returns no metrics.
+        if complete or not latest:
+            now = datetime.now(timezone.utc)
+            insight_id = hashlib.sha256(now.isoformat().encode()).hexdigest()[:24]
+            insight_data = {'post_id': ref.id, 'timestamp': data['timestamp'],
+                            'collected_at': now, 'status': 'success' if complete else 'empty', **metrics}
+            batch.create(ref.collection('insights').document(insight_id), insight_data)
+            record = observation(data, insight_data)
+            if record:
+                batch.set(db.collection('data').document('threads_' + ref.id), record, merge=True)
+            saved = 1
+    if created or updated or saved:
+        batch.commit(timeout=30)
+    if check_insight:
+        next_insight_check[ref.id] = time.monotonic() + (
+            insight_interval_seconds() if complete else interval_seconds())
+    return {'created': created, 'updated': updated, 'insights_saved': saved}
+
+
 def sync_once(force=False):
     if not lock.acquire(blocking=False):
         return {'status': 'already_running'}
@@ -112,70 +171,21 @@ def sync_once(force=False):
                 # Commit a post together with its initial insight. Retry incomplete reads
                 # on later polls without replacing existing successful insights.
                 state['progress'] = {'phase': 'posts', 'completed': 0, 'total': len(refs)}
-                for position, ref in enumerate(refs, 1):
-                    data = documents[ref.id]
-                    snapshot = existing[ref.id]
-                    check_insight = force or time.monotonic() >= next_insight_check.get(ref.id, 0)
-                    latest = []
-                    if check_insight and snapshot.exists:
-                        latest = list(ref.collection('insights').order_by(
-                            'collected_at', direction='DESCENDING'
-                        ).limit(1).stream(timeout=10))
-                    if not force and latest and latest[0].to_dict().get('status') == 'success':
-                        age = (datetime.now(timezone.utc) - latest[0].to_dict()['collected_at']).total_seconds()
-                        remaining = insight_interval_seconds() - age
-                        if remaining > 0:
-                            next_insight_check[ref.id] = time.monotonic() + remaining
-                            check_insight = False
-                    batch = db.batch()
-                    changed = False
-                    if not snapshot.exists:
-                        batch.create(ref, data)
-                        created += 1
-                        changed = True
-                    elif any(snapshot.to_dict().get(k) != v for k, v in data.items()):
-                        batch.update(ref, data)
-                        updated += 1
-                        changed = True
-                    if check_insight:
-                        payload = api_get(session, f'{ref.id}/insights',
-                                          {'metric': ','.join(METRICS)})
-                        metrics = {name: None for name in METRICS}
-                        for metric in payload['data']:
-                            name = metric.get('name')
-                            values = metric.get('values', [])
-                            if name in metrics and values:
-                                value = values[0].get('value')
-                                if type(value) is int and value >= 0:
-                                    metrics[name] = value
-                        complete = all(v is not None for v in metrics.values())
-                        # Avoid writing an identical empty observation every minute.
-                        if complete or not latest:
-                            now = datetime.now(timezone.utc)
-                            insight_id = hashlib.sha256(now.isoformat().encode()).hexdigest()[:24]
-                            insight_data = {
-                                'post_id': ref.id, 'timestamp': data['timestamp'],
-                                'collected_at': now, 'status': 'success' if complete else 'empty',
-                                **metrics,
-                            }
-                            batch.create(ref.collection('insights').document(insight_id), insight_data)
-                            record = observation(data, insight_data)
-                            if record:
-                                batch.set(db.collection('data').document('threads_' + ref.id), record, merge=True)
-                            saved += 1
-                            changed = True
-                    if changed:
-                        batch.commit(timeout=30)
-                    if check_insight:
-                        next_insight_check[ref.id] = time.monotonic() + (
-                            insight_interval_seconds() if complete else interval_seconds()
-                        )
+                def collect(ref, worker_session):
+                    return sync_post(worker_session, db, ref, documents[ref.id], existing[ref.id], force)
+
+                for position, item in enumerate(collect_parallel(refs, session, collect), 1):
+                    created += item['created']
+                    updated += item['updated']
+                    saved += item['insights_saved']
                     state['progress'] = {'phase': 'posts', 'completed': position, 'total': len(refs), 'created': created}
                 result = {'fetched': len(documents), 'created': created,
                           'updated': updated, 'insights_saved': saved}
             try:
                 state['progress'] = {'phase': 'replies', 'completed': 0, 'total': 0}
-                result['own_replies'] = sync_reply_views(session, db, api_get, insight_interval_seconds())
+                def reply_progress(completed, total):
+                    state['progress'] = {'phase': 'replies', 'completed': completed, 'total': total}
+                result['own_replies'] = sync_reply_views(session, db, api_get, insight_interval_seconds(), progress=reply_progress)
                 state['replies_error'] = None
             except SyncError as exc:
                 state['replies_error'] = str(exc)
@@ -277,7 +287,7 @@ async def lifespan(app):
 @router.get('/status')
 def sync_status():
     return {'enabled': enabled(), 'interval_seconds': interval_seconds(),
-            'insight_interval_seconds': insight_interval_seconds(), **state,
+            'insight_interval_seconds': insight_interval_seconds(), 'workers': SYNC_WORKERS, **state,
             'manual': dict(manual_state)}
 
 

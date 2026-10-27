@@ -389,7 +389,7 @@ async function refresh(silent = false) {
         if (status.manual.status !== 'running') { syncResult = status.manual; break; }
         const progress = status.progress;
         const seconds = Math.floor((Date.now() - new Date(status.manual.started_at).getTime()) / 1000);
-        const detail = progress?.phase === 'posts' && progress.total ? `게시물 ${progress.completed}/${progress.total}개 확인` : progress?.phase === 'replies' ? '답글 조회수 확인' : progress?.phase === 'account' ? '계정 조회수 확인' : 'Threads 데이터 확인';
+        const detail = progress?.phase === 'posts' && progress.total ? `게시물 ${progress.completed}/${progress.total}개 확인` : progress?.phase === 'replies' ? (progress.total ? `답글 ${progress.completed}/${progress.total}개 확인` : '답글 조회수 확인') : progress?.phase === 'account' ? '계정 조회수 확인' : 'Threads 데이터 확인';
         $('#refresh').textContent = `↻ ${detail}`;
         notify(`${detail} 중 · ${seconds}초 경과. 수집이 끝나면 대시보드를 함께 갱신합니다.`);
         await new Promise(resolve => setTimeout(resolve, 2000));

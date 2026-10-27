@@ -1,5 +1,6 @@
 """Collect only the authenticated account's own replies, independently of posts."""
 from datetime import datetime, timezone
+from app.sync_workers import collect_parallel
 
 
 def fetch_replies(session, api_get):
@@ -28,7 +29,7 @@ def fetch_replies(session, api_get):
     raise ValueError('reply_page_limit_exceeded')
 
 
-def sync_reply_views(session, db, api_get, interval, limit=40):
+def sync_reply_views(session, db, api_get, interval, limit=40, progress=None):
     rows = fetch_replies(session, api_get)
     refs = [db.collection('threads_replies').document(pid) for pid in rows]
     existing = {s.id: s.to_dict() if s.exists else {} for s in db.get_all(refs, timeout=30)} if refs else {}
@@ -36,14 +37,14 @@ def sync_reply_views(session, db, api_get, interval, limit=40):
     epoch = datetime.min.replace(tzinfo=timezone.utc)
     # Oldest attempts first: even an unavailable insight cannot starve later replies.
     due = sorted(refs, key=lambda r: existing[r.id].get('checked_at', epoch))
+    eligible = [ref for ref in due if (now - existing[ref.id].get('checked_at', epoch)).total_seconds() >= interval]
+    selected = eligible[:limit]
     saved = checked = 0
-    for ref in due:
-        old = existing[ref.id]
-        if (now - old.get('checked_at', epoch)).total_seconds() < interval:
-            continue
-        if checked >= limit:
-            break
-        payload = api_get(session, f'{ref.id}/insights', {'metric': 'views'})
+    if progress:
+        progress(0, len(selected))
+
+    def collect(ref, worker_session):
+        payload = api_get(worker_session, f'{ref.id}/insights', {'metric': 'views'})
         value = None
         for metric in payload['data']:
             values = metric.get('values', [])
@@ -54,12 +55,17 @@ def sync_reply_views(session, db, api_get, interval, limit=40):
         reading = {**rows[ref.id], 'checked_at': now}
         if value is not None:
             reading.update(views=value, collected_at=now)
-            saved += 1
         # Missing metrics retain the last successful value, never overwrite it with zero.
         ref.set(reading, merge=True, timeout=20)
+        return value is not None
+
+    for has_views in collect_parallel(selected, session, collect):
+        saved += int(has_views)
         checked += 1
+        if progress:
+            progress(checked, len(selected))
     return {'fetched': len(rows), 'checked': checked, 'views_saved': saved,
-            'pending': sum((now - existing[r.id].get('checked_at', epoch)).total_seconds() >= interval for r in due) - checked}
+            'pending': len(eligible) - checked}
 
 
 def combined_views(posts_total, posts_coverage, posts_ids, replies):

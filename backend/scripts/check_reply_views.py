@@ -1,5 +1,6 @@
 """Offline checks for reply view totals and safe incremental collection."""
 import unittest
+import requests
 from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock
 from app.reply_views import combined_views, fetch_replies, sync_reply_views
@@ -29,7 +30,8 @@ class ReplyChecks(unittest.TestCase):
         old=datetime.now(timezone.utc)-timedelta(hours=1)
         db.get_all.return_value=[Mock(id=pid,exists=True,to_dict=lambda:{'views':9,'checked_at':old}) for pid in refs]
         api=Mock(side_effect=[{'data':[{'id':pid,'timestamp':'2026-10-18T00:00:00Z','is_reply':True} for pid in refs]}, {'data':[]}])
-        result=sync_reply_views(Mock(),db,api,900,limit=1)
+        with requests.Session() as session:
+            result=sync_reply_views(session,db,api,900,limit=1)
         self.assertEqual(result['checked'],1)
         self.assertEqual(result['pending'],2)
         data=refs['0'].set.call_args.args[0]
