@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.posts import database
+from app.chat_memory import clear_answer_memory, question_key
 
 router = APIRouter(prefix='/api/conversations', tags=['conversations'])
 
@@ -43,6 +44,7 @@ def save_conversation(body: ConversationInput, db=Depends(database)):
     ref = db.collection('conversations').document()
     payload = {**body.model_dump(), 'created_at': now, 'updated_at': now}
     ref.create(payload, timeout=10)
+    clear_answer_memory()
     return {**payload, 'id': ref.id}
 
 
@@ -56,8 +58,12 @@ def list_conversations(limit: int = Query(30, ge=1, le=100),
         anchor = require_conversation(db, cursor)
         query = query.start_after(anchor)
     rows = list(query.limit(limit + 1).stream(timeout=15))
-    return {'items': [{k: v for k, v in {**s.to_dict(), 'id': s.id}.items() if k != 'messages'}
-                      for s in rows[:limit]],
+    def entry(snapshot):
+        row = snapshot.to_dict()
+        first = next((message['content'] for message in row.get('messages',[]) if message.get('role')=='user'), None)
+        return {**{k:v for k,v in row.items() if k!='messages'}, 'id':snapshot.id,
+                'question_key':question_key(first) if first else snapshot.id}
+    return {'items': [entry(snapshot) for snapshot in rows[:limit]],
             'has_more': len(rows) > limit,
             'next_cursor': rows[limit - 1].id if len(rows) > limit else None}
 
@@ -71,3 +77,4 @@ def get_conversation(conversation_id: str, db=Depends(database)):
 @router.delete('/{conversation_id}', status_code=204)
 def delete_conversation(conversation_id: str, db=Depends(database)):
     require_conversation(db, conversation_id).reference.delete(timeout=10)
+    clear_answer_memory()

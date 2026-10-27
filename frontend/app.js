@@ -309,13 +309,36 @@ async function loadMemos(append = false) {
     dataCursor = result.next_cursor; $('#more-data').hidden = !result.has_more;
   } finally { dataBusy = false; }
 }
-function message(role, text) {
+function message(role, text, origin = null) {
   const node = element('div', 'message ' + role); node.append(element('span', 'message-label', role === 'user' ? '나' : '인사이트 비서'), document.createTextNode(text));
+  if (role === 'assistant' && origin?.references?.length) {
+    const details = element('details', 'answer-references');
+    details.append(element('summary', '', `이전 유사 질문 ${origin.references.length}개 참고`));
+    origin.references.forEach(ref => details.append(action(ref.question, async () => {
+      if (chatBusy) return;
+      try { await openConversation(ref.conversation_id, ref.message_index); }
+      catch (error) { notify(error.message, true); }
+    }, 'button subtle')));
+    node.append(details);
+  }
   $('#messages').append(node); $('#messages').scrollTop = $('#messages').scrollHeight; return node;
 }
+async function openConversation(id, focusIndex = null, reused = null) {
+  const body = await api('/api/conversations/' + id);
+  conversationId = body.id; $('#messages').replaceChildren();
+  const nodes = body.messages.map(m => message(m.role, m.content, m.answer_origin));
+  document.querySelectorAll('.conversation-row').forEach(node => node.classList.toggle('active', node.dataset.conversationId === conversationId));
+  if (reused && nodes[focusIndex]) {
+    const saved = reused.saved_at ? new Date(reused.saved_at).toLocaleString('ko-KR') : '이전';
+    nodes[focusIndex].prepend(element('p', 'caption', `저장된 답변 재사용 · ${saved} · 최신 재분석 아님`));
+  }
+  if (focusIndex !== null) nodes[focusIndex]?.scrollIntoView({block:'nearest'});
+  $('#chat-input').focus();
+}
+const historyGroups = new Map();
 async function loadHistory(append = false) {
   const result = await api('/api/conversations?limit=20' + (append && historyCursor ? '&cursor=' + encodeURIComponent(historyCursor) : ''));
-  const root = $('#conversation-list'); if (!append) root.replaceChildren();
+  const root = $('#conversation-list'); if (!append) { root.replaceChildren(); historyGroups.clear(); }
   result.items.forEach(conversation => {
     const row = element('div', 'conversation-row');
     row.dataset.conversationId = conversation.id;
@@ -323,10 +346,7 @@ async function loadHistory(append = false) {
     const open = action(conversation.title, async () => {
       if (chatBusy) return;
       try {
-        const body = await api('/api/conversations/' + conversation.id);
-        conversationId = body.id; $('#messages').replaceChildren(); body.messages.forEach(m => message(m.role, m.content));
-        document.querySelectorAll('.conversation-row').forEach(node => node.classList.toggle('active', node.dataset.conversationId === conversationId));
-        $('#chat-input').focus();
+        await openConversation(conversation.id);
         notify('대화를 불러왔습니다. 이어서 질문할 수 있습니다.');
       } catch (error) { notify(error.message, true); }
     }, 'conversation-open');
@@ -335,7 +355,20 @@ async function loadHistory(append = false) {
       if (chatBusy || !confirm('이 대화 기록을 삭제할까요?')) return;
       try { await api('/api/conversations/' + conversation.id, { method: 'DELETE' }); if (conversationId === conversation.id) newChat(); await loadHistory(); notify('대화 기록을 삭제했습니다.'); }
       catch (error) { notify(error.message, true); }
-    })); root.append(row);
+    }));
+    const key = conversation.question_key || conversation.id;
+    const group = historyGroups.get(key);
+    if (group) {
+      if (!group.older) {
+        group.older = element('details', 'older-conversations');
+        group.older.append(element('summary', '', '같은 질문의 이전 기록'));
+        group.container.append(group.older);
+      }
+      group.older.append(row);
+    } else {
+      const container = element('div', 'conversation-group');container.append(row);root.append(container);
+      historyGroups.set(key,{container,older:null});
+    }
   });
   if (!result.items.length && !append) root.append(element('p', 'empty', 'AI와 나눈 대화가 여기에 저장됩니다.'));
   historyCursor = result.next_cursor; $('#more-history').hidden = !result.has_more;
@@ -348,7 +381,14 @@ async function sendChat(event) {
   const userNode = message('user', text), loading = message('assistant', '데이터를 읽고 답변을 준비하고 있습니다…'); loading.classList.add('loading');
   try {
     const result = await api('/api/chat', { method: 'POST', body: JSON.stringify({ message: text, conversation_id: conversationId }) });
-    conversationId = result.conversation_id; loading.remove(); message('assistant', result.answer); $('#chat-input').value = '';
+    loading.remove();
+    if (result.reused) {
+      await openConversation(result.conversation_id, result.answer_origin.message_index, result.answer_origin);
+      notify('같은 질문의 저장된 답변을 불러왔습니다. AI를 새로 호출하지 않았습니다.');
+    } else {
+      conversationId = result.conversation_id; message('assistant', result.answer, result.answer_origin);
+    }
+    $('#chat-input').value = '';
     await loadHistory();
   } catch (error) { loading.remove(); userNode.remove(); notify(error.message, true); }
   finally { chatBusy = false; $('#send-chat').disabled = false; $('#new-chat').disabled = false; }

@@ -89,6 +89,10 @@ header{background:#fafafa}.nav{color:#555}.nav.active{background:#eee;color:#000
 @media(max-width:650px){#data-list{grid-template-columns:1fr}#data-list>.memo-card{padding:18px}}
 
 .collaboration-finance{grid-template-columns:repeat(3,minmax(0,1fr));margin-top:22px}
+.answer-references{margin-top:16px;padding-top:12px;border-top:1px solid var(--line);white-space:normal;font-size:13px}
+.answer-references summary,.older-conversations summary{cursor:pointer;color:var(--muted)}
+.answer-references button{display:block;margin-top:8px;text-align:left;white-space:normal}
+.older-conversations{margin:0 0 12px 12px;font-size:13px}.older-conversations>.conversation-row{margin-top:8px}
 .collaboration-finance strong{font-size:24px;overflow-wrap:anywhere}
 .collaboration-grid,.collaboration-posts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:22px 0}
 .collaboration-card,.collaboration-post{min-width:0;border:1px solid var(--line);border-radius:14px;background:#fff;padding:20px;display:flex;flex-direction:column;gap:12px}
