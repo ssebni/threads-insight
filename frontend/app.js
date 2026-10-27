@@ -8,6 +8,7 @@ let aiConfigured = false;
 let refreshBusy = false;
 let lastSummary = null;
 let accessPrompt = null;
+let noticeRevision = 0;
 
 function requestSiteAccess() {
   if (accessPrompt) return accessPrompt;
@@ -172,13 +173,18 @@ function element(tag, className, text) {
   return node;
 }
 function notify(text, error = false) {
+  noticeRevision++;
   $('#notice').textContent = text;
   $('#notice').classList.toggle('error', error);
   $('#notice').hidden = false;
 }
 async function api(path, options = {}) {
   const controller = new AbortController();
-  const slow = setTimeout(() => notify('서버 응답을 기다리는 중입니다. 배포 서버가 잠들어 있었다면 첫 연결에 시간이 걸릴 수 있어요.'), 10000);
+  let waitingNotice = null;
+  const slow = setTimeout(() => {
+    notify('서버 응답을 기다리는 중입니다. 배포 서버가 잠들어 있었다면 첫 연결에 시간이 걸릴 수 있어요.');
+    waitingNotice = noticeRevision;
+  }, 10000);
   const timeout = setTimeout(() => controller.abort(), 70000);
   try {
     const token=sessionStorage.getItem('threads-access-token');
@@ -205,7 +211,11 @@ async function api(path, options = {}) {
     if (error.name === 'AbortError') throw new Error('서버 응답 시간이 초과됐습니다. 잠시 후 다시 시도해 주세요.');
     if (error instanceof TypeError) throw new Error('서버에 연결할 수 없습니다. 서버 실행 상태와 API 주소를 확인해 주세요.');
     throw error;
-  } finally { clearTimeout(slow); clearTimeout(timeout); }
+  } finally {
+    clearTimeout(slow); clearTimeout(timeout);
+    // Remove only this request's waiting message; preserve later errors and notices.
+    if (waitingNotice !== null && waitingNotice === noticeRevision) $('#notice').hidden = true;
+  }
 }
 function action(text, onClick, className = 'button') {
   const button = element('button', className, text);
